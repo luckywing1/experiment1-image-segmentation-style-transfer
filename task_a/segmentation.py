@@ -6,6 +6,7 @@ DeepLabV3+ (ResNet-101) 语义分割模块
 - 输出指定类别的二值掩码
 """
 
+import ssl
 import torch
 import torchvision.transforms as T
 import numpy as np
@@ -67,6 +68,9 @@ class Segmentor:
     def _ensure_loaded(self):
         if self.model is not None:
             return
+        # 解决国内网络环境下 SSL 证书验证失败的问题
+        ssl._create_default_https_context = ssl._create_unverified_context
+
         print("[Segmentor] 正在加载 DeepLabV3+ 预训练权重（首次运行会自动下载，约 300 MB）...")
         weights = DeepLabV3_ResNet101_Weights.DEFAULT
         self.model = deeplabv3_resnet101(weights=weights)
@@ -92,7 +96,8 @@ class Segmentor:
 
         target_idx = CLASS_NAME_ZH_TO_IDX[class_name_zh]
         img_rgb = pil_image.convert("RGB")
-        input_tensor = _INFERENCE_TRANSFORM(img_rgb).unsqueeze(0).to(self.device)
+        input_tensor = _INFERENCE_TRANSFORM(
+            img_rgb).unsqueeze(0).to(self.device)
 
         with torch.no_grad():
             output = self.model(input_tensor)["out"]  # (1, 21, H, W)
@@ -116,7 +121,8 @@ class Segmentor:
         """
         self._ensure_loaded()
         img_rgb = pil_image.convert("RGB")
-        input_tensor = _INFERENCE_TRANSFORM(img_rgb).unsqueeze(0).to(self.device)
+        input_tensor = _INFERENCE_TRANSFORM(
+            img_rgb).unsqueeze(0).to(self.device)
 
         with torch.no_grad():
             output = self.model(input_tensor)["out"]
