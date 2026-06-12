@@ -7,6 +7,13 @@ AdaIN 风格迁移推理引擎
 - 推理耗时记录
 """
 
+from task_b.model.transform import (
+    pil_to_tensor,
+    tensor_to_pil,
+    resize_keep_ratio,
+    TemporalSmoother,
+)
+from task_b.model.adain import AdaINNet, DEFAULT_VGG_NORMALISED_PATH, DEFAULT_DECODER_PATH as _ADAIN_DEFAULT_DECODER
 import os
 import sys
 import time
@@ -23,19 +30,15 @@ _ROOT = Path(__file__).parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from task_b.model.adain import AdaINNet
-from task_b.model.transform import (
-    pil_to_tensor,
-    tensor_to_pil,
-    resize_keep_ratio,
-    TemporalSmoother,
-)
 
 # 支持的图像扩展名
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
-# 默认解码器权重路径（相对于项目根目录）
-DEFAULT_DECODER_PATH = str(_ROOT / "task_b" / "decoder.pth")
+# 默认解码器权重路径（与 adain.py 中定义一致）
+DEFAULT_DECODER_PATH = _ADAIN_DEFAULT_DECODER
+
+# 默认 VGG 编码器权重路径
+DEFAULT_VGG_PATH = DEFAULT_VGG_NORMALISED_PATH
 
 
 class StyleTransfer:
@@ -73,21 +76,30 @@ class StyleTransfer:
         self.last_inference_ms: float = 0.0
         self.last_total_ms: float = 0.0
 
-    def load(self, decoder_path: str = DEFAULT_DECODER_PATH):
+    def load(self, decoder_path: str = DEFAULT_DECODER_PATH,
+             vgg_normalised_path: str = DEFAULT_VGG_PATH):
         """
         加载模型。必须在 transfer() 前调用。
 
-        Args:
-            decoder_path: decoder.pth 文件路径
-        """
-        if not os.path.exists(decoder_path):
-            raise FileNotFoundError(
-                f"解码器权重文件不存在：{decoder_path}\n"
-                "请参考 README.md 下载 decoder.pth"
-            )
+        权重文件不存在时会自动从 GitHub 下载。
 
-        print(f"[StyleTransfer] 加载编码器（VGG19）...")
-        self._net = AdaINNet()
+        Args:
+            decoder_path:        decoder.pth 文件路径
+            vgg_normalised_path: vgg_normalised.pth 文件路径
+        """
+        # 自动下载缺失的权重文件
+        if not os.path.exists(decoder_path):
+            print(f"[StyleTransfer] decoder.pth 不存在，正在自动下载...")
+            from task_b.model.adain import download_decoder
+            download_decoder(save_path=decoder_path)
+
+        if not os.path.exists(vgg_normalised_path):
+            print(f"[StyleTransfer] vgg_normalised.pth 不存在，正在自动下载...")
+            from task_b.model.adain import download_vgg_normalised
+            download_vgg_normalised(save_path=vgg_normalised_path)
+
+        print(f"[StyleTransfer] 加载编码器（VGG19 normalised）...")
+        self._net = AdaINNet(vgg_normalised_path=vgg_normalised_path)
         self._net.load_decoder(decoder_path)
         self._net.to(self.device)
         self._net.eval()
@@ -262,7 +274,8 @@ class StyleTransfer:
         Returns:
             (result_bgr, inference_ms)
         """
-        content_pil = Image.fromarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
+        content_pil = Image.fromarray(
+            cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
         result_pil, ms = self.transfer(
             content_pil, style_pil, alpha=alpha, temporal_smooth=True
         )
@@ -308,7 +321,8 @@ def _make_comparison_grid(
     grid_cols = cols * 2
     grid_rows = (n + grid_cols - 1) // grid_cols
 
-    grid = Image.new("RGB", (grid_cols * thumb_size, grid_rows * thumb_size), (30, 30, 30))
+    grid = Image.new("RGB", (grid_cols * thumb_size,
+                     grid_rows * thumb_size), (30, 30, 30))
     for idx, img in enumerate(thumbs):
         row = idx // grid_cols
         col = idx % grid_cols

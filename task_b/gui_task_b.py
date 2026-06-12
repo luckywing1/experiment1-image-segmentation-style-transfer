@@ -8,7 +8,6 @@ task_b/gui_task_b.py
 - 批量处理文件夹
 - 底部状态栏：推理耗时 / GPU 显存
 """
-
 import os
 import sys
 import threading
@@ -24,8 +23,9 @@ _ROOT = Path(__file__).parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from task_b.style_transfer import StyleTransfer, DEFAULT_DECODER_PATH
 
+from task_b.model.adain import DEFAULT_VGG_NORMALISED_PATH, download_decoder, download_vgg_normalised
+from task_b.style_transfer import StyleTransfer, DEFAULT_DECODER_PATH, DEFAULT_VGG_PATH
 # ─────────────────────────────────────────────────────────────
 # 常量
 # ─────────────────────────────────────────────────────────────
@@ -93,6 +93,7 @@ class TaskBApp(tk.Tk):
         self._st = StyleTransfer()
         self._st_loaded = False
         self._decoder_path = DEFAULT_DECODER_PATH
+        self._vgg_path = DEFAULT_VGG_NORMALISED_PATH
 
         # 摄像头状态
         self._cam_running = False
@@ -131,7 +132,8 @@ class TaskBApp(tk.Tk):
         ]
         self._preview_widgets = {}
         for col, (label_text, key) in enumerate(panel_configs):
-            panel = tk.Frame(preview_frame, bg=CARD_COLOR, bd=1, relief="solid")
+            panel = tk.Frame(preview_frame, bg=CARD_COLOR,
+                             bd=1, relief="solid")
             panel.grid(row=0, column=col, padx=5, pady=4, sticky="nsew")
             preview_frame.columnconfigure(col, weight=1)
 
@@ -151,12 +153,14 @@ class TaskBApp(tk.Tk):
         row1 = tk.Frame(ctrl, bg=PANEL_COLOR)
         row1.pack(fill="x", padx=8, pady=6)
 
-        self._make_btn(row1, "加载内容图", self._load_content).pack(side="left", padx=4)
+        self._make_btn(row1, "加载内容图", self._load_content).pack(
+            side="left", padx=4)
         self._content_lbl = tk.Label(row1, text="未选择", bg=PANEL_COLOR, fg=TEXT_COLOR,
                                      font=("微软雅黑", 8), width=22, anchor="w")
         self._content_lbl.pack(side="left", padx=4)
 
-        self._make_btn(row1, "加载风格图", self._load_style).pack(side="left", padx=4)
+        self._make_btn(row1, "加载风格图", self._load_style).pack(
+            side="left", padx=4)
         self._style_lbl = tk.Label(row1, text="未选择", bg=PANEL_COLOR, fg=TEXT_COLOR,
                                    font=("微软雅黑", 8), width=22, anchor="w")
         self._style_lbl.pack(side="left", padx=4)
@@ -175,7 +179,8 @@ class TaskBApp(tk.Tk):
             values=options, state="readonly", width=22
         )
         self._builtin_combo.pack(side="left", padx=(0, 8))
-        self._builtin_combo.bind("<<ComboboxSelected>>", self._on_builtin_style_select)
+        self._builtin_combo.bind(
+            "<<ComboboxSelected>>", self._on_builtin_style_select)
 
         tk.Label(row2, text="  decoder.pth：", bg=PANEL_COLOR, fg=TEXT_COLOR,
                  font=("微软雅黑", 9)).pack(side="left")
@@ -183,7 +188,25 @@ class TaskBApp(tk.Tk):
                                      bg=PANEL_COLOR, fg=YELLOW,
                                      font=("微软雅黑", 8), width=30, anchor="w")
         self._decoder_lbl.pack(side="left", padx=4)
-        self._make_btn(row2, "选择权重文件", self._choose_decoder).pack(side="left", padx=4)
+        self._make_btn(row2, "选择权重文件", self._choose_decoder).pack(
+            side="left", padx=4)
+        self._make_btn(row2, "自动下载", self._download_decoder).pack(
+            side="left", padx=4)
+
+        # 行3：vgg_normalised.pth 状态
+        row2b = tk.Frame(ctrl, bg=PANEL_COLOR)
+        row2b.pack(fill="x", padx=8, pady=2)
+
+        tk.Label(row2b, text="vgg_normalised.pth：", bg=PANEL_COLOR, fg=TEXT_COLOR,
+                 font=("微软雅黑", 9)).pack(side="left")
+        self._vgg_lbl = tk.Label(row2b, text=self._short_path(self._vgg_path),
+                                 bg=PANEL_COLOR, fg=YELLOW,
+                                 font=("微软雅黑", 8), width=30, anchor="w")
+        self._vgg_lbl.pack(side="left", padx=4)
+        self._make_btn(row2b, "选择文件", self._choose_vgg).pack(
+            side="left", padx=4)
+        self._make_btn(row2b, "自动下载", self._download_vgg).pack(
+            side="left", padx=4)
 
         # 行3：风格强度参数
         row3 = tk.Frame(ctrl, bg=PANEL_COLOR)
@@ -213,7 +236,8 @@ class TaskBApp(tk.Tk):
         row4 = tk.Frame(ctrl, bg=PANEL_COLOR)
         row4.pack(fill="x", padx=8, pady=(4, 8))
 
-        self._btn_run = self._make_btn(row4, "▶ 风格迁移", self._run_single, accent=True)
+        self._btn_run = self._make_btn(
+            row4, "▶ 风格迁移", self._run_single, accent=True)
         self._btn_run.pack(side="left", padx=4)
 
         self._btn_cam = self._make_btn(row4, "开启摄像头", self._toggle_camera)
@@ -226,7 +250,8 @@ class TaskBApp(tk.Tk):
         self._btn_save.pack(side="left", padx=4)
 
         # ── 状态栏 ──
-        self._status_var = tk.StringVar(value="就绪  |  请加载内容图、风格图，并确保 decoder.pth 存在")
+        self._status_var = tk.StringVar(
+            value="就绪  |  请加载内容图和风格图（权重文件首次运行时自动下载）")
         status_bar = tk.Frame(self, bg="#0d0d1a")
         status_bar.pack(fill="x", side="bottom")
 
@@ -259,14 +284,20 @@ class TaskBApp(tk.Tk):
     def _check_decoder_on_startup(self):
         if not os.path.exists(self._decoder_path):
             self._decoder_lbl.config(fg=RED)
-            self._status("未找到 decoder.pth，请参考 README 下载后点击[选择权重文件]")
+            self._status("未找到 decoder.pth，点击[自动下载]或首次运行时自动下载")
         else:
             self._decoder_lbl.config(fg=GREEN)
+        if os.path.exists(self._vgg_path):
+            self._vgg_lbl.config(fg=GREEN)
+        else:
+            self._vgg_lbl.config(fg=YELLOW)
+            self._status("未找到 vgg_normalised.pth，点击[自动下载]或首次运行时自动下载")
 
     def _load_content(self):
         path = filedialog.askopenfilename(
             title="选择内容图",
-            filetypes=[("图像文件", "*.jpg *.jpeg *.png *.bmp *.webp"), ("所有文件", "*.*")]
+            filetypes=[("图像文件", "*.jpg *.jpeg *.png *.bmp *.webp"),
+                       ("所有文件", "*.*")]
         )
         if not path:
             return
@@ -283,7 +314,8 @@ class TaskBApp(tk.Tk):
     def _load_style(self):
         path = filedialog.askopenfilename(
             title="选择风格图",
-            filetypes=[("图像文件", "*.jpg *.jpeg *.png *.bmp *.webp"), ("所有文件", "*.*")]
+            filetypes=[("图像文件", "*.jpg *.jpeg *.png *.bmp *.webp"),
+                       ("所有文件", "*.*")]
         )
         if not path:
             return
@@ -323,12 +355,62 @@ class TaskBApp(tk.Tk):
         self._st_loaded = False  # 需要重新加载
         self._status("已选择权重：" + os.path.basename(path) + "，下次运行时自动加载")
 
+    def _download_decoder(self):
+        """手动触发下载 decoder.pth。"""
+        if os.path.exists(self._decoder_path):
+            self._status("decoder.pth 已存在，无需下载")
+            self._decoder_lbl.config(fg=GREEN)
+            return
+        self._status("正在下载 decoder.pth（~13 MB），请稍候...")
+        threading.Thread(target=self._download_decoder_worker,
+                         daemon=True).start()
+
+    def _download_decoder_worker(self):
+        try:
+            download_decoder(self._decoder_path)
+            self.after(0, lambda: self._decoder_lbl.config(fg=GREEN))
+            self._status("decoder.pth 下载完成")
+        except Exception as e:
+            self.after(0, lambda: self._decoder_lbl.config(fg=RED))
+            self._status("下载失败：" + str(e))
+
+    def _choose_vgg(self):
+        path = filedialog.askopenfilename(
+            title="选择 vgg_normalised.pth",
+            filetypes=[("PyTorch 权重", "*.pth *.pt"), ("所有文件", "*.*")]
+        )
+        if not path:
+            return
+        self._vgg_path = path
+        self._vgg_lbl.config(text=self._short_path(path), fg=GREEN)
+        self._st_loaded = False
+        self._status("已选择 VGG 权重：" + os.path.basename(path))
+
+    def _download_vgg(self):
+        """手动触发下载 vgg_normalised.pth。"""
+        if os.path.exists(self._vgg_path):
+            self._status("vgg_normalised.pth 已存在，无需下载")
+            self._vgg_lbl.config(fg=GREEN)
+            return
+        self._status("正在下载 vgg_normalised.pth（~80 MB），请稍候...")
+        threading.Thread(target=self._download_vgg_worker, daemon=True).start()
+
+    def _download_vgg_worker(self):
+        try:
+            download_vgg_normalised(self._vgg_path)
+            self.after(0, lambda: self._vgg_lbl.config(fg=GREEN))
+            self._status("vgg_normalised.pth 下载完成")
+        except Exception as e:
+            self.after(0, lambda: self._vgg_lbl.config(fg=RED))
+            self._status("下载失败：" + str(e))
+
     def _ensure_model_loaded(self) -> bool:
         if self._st_loaded:
             return True
         try:
             self._st.max_content_size = self._size_var.get()
-            self._st.load(self._decoder_path)
+            self._st.load(self._decoder_path,
+                          vgg_normalised_path=self._vgg_path)
             self._st_loaded = True
             return True
         except FileNotFoundError as e:
@@ -364,9 +446,11 @@ class TaskBApp(tk.Tk):
             self._update_preview("result", result.copy())
             vram = self._st.get_vram_mb()
             self._status(
-                "完成  |  推理耗时 %.1f ms  |  总耗时 %.1f ms" % (ms, self._st.last_total_ms)
+                "完成  |  推理耗时 %.1f ms  |  总耗时 %.1f ms" % (
+                    ms, self._st.last_total_ms)
             )
-            self._vram_var.set("VRAM: %.0f MB" % vram if vram > 0 else "VRAM: CPU 模式")
+            self._vram_var.set("VRAM: %.0f MB" %
+                               vram if vram > 0 else "VRAM: CPU 模式")
         except Exception as e:
             self.after(0, lambda: messagebox.showerror("推理错误", str(e)))
             self._status("错误：" + str(e))
@@ -399,7 +483,8 @@ class TaskBApp(tk.Tk):
         self._cam_running = True
         self._btn_cam.config(text="关闭摄像头", bg=RED, fg="white")
         self._st.reset_smoother()
-        self._cam_thread = threading.Thread(target=self._camera_loop, daemon=True)
+        self._cam_thread = threading.Thread(
+            target=self._camera_loop, daemon=True)
         self._cam_thread.start()
         self._status("摄像头模式已开启  |  点击[关闭摄像头]退出")
 
@@ -438,7 +523,8 @@ class TaskBApp(tk.Tk):
 
             vram = self._st.get_vram_mb()
             self._status("摄像头模式  |  推理 %.1f ms/帧  |  alpha=%.2f" % (ms, alpha))
-            self._vram_var.set("VRAM: %.0f MB" % vram if vram > 0 else "VRAM: CPU 模式")
+            self._vram_var.set("VRAM: %.0f MB" %
+                               vram if vram > 0 else "VRAM: CPU 模式")
 
         self.after(0, self._stop_camera)
 
@@ -485,7 +571,8 @@ class TaskBApp(tk.Tk):
                 input_dir, style_tmp, output_dir, alpha=alpha,
                 make_grid=True, progress_callback=progress
             )
-            self._status("批量处理完成，共 %d 个文件  ->  输出目录：%s" % (len(paths), output_dir))
+            self._status("批量处理完成，共 %d 个文件  ->  输出目录：%s" %
+                         (len(paths), output_dir))
             self.after(0, lambda: messagebox.showinfo(
                 "完成",
                 "批量处理完成！\n共处理 %d 张图像\n输出目录：%s" % (len(paths), output_dir)

@@ -20,9 +20,10 @@
 ├── task_b/
 │   ├── model/
 │   │   ├── adain.py          # AdaIN 网络结构
-│   │   └── transform.py      # 图像预处理/后处理
+│   │   ├── transform.py      # 图像预处理/后处理
+│   │   └── vgg_normalised.pth # ← 需要下载（见下方说明）
 │   ├── style_transfer.py     # 风格迁移推理引擎
-│   ├── decoder.pth           # ← 需要手动下载（见下方说明）
+│   ├── decoder.pth           # ← 需要下载（见下方说明）
 │   └── gui_task_b.py         # 任务B 桌面GUI（入口）
 ├── assets/
 │   ├── style_images/         # 放入风格参考图（任意 jpg/png）
@@ -89,24 +90,19 @@ pip install -r requirements.txt
 
 - **内容图**：任意一张你想进行风格化的 jpg/png 图片
 - **风格参考图**：任意一张画作或风格图（如梵高星夜、莫奈睡莲等）；也可放入 `assets/style_images/` 目录作为内置预设
-- **decoder.pth（必须）**：AdaIN 解码器预训练权重文件（约 32 MB）
+- **模型权重文件**：
+  - `decoder.pth`（~13 MB）— AdaIN 解码器权重
+  - `vgg_normalised.pth`（~76 MB）— VGG19 编码器权重
 
-  **下载方式（二选一）：**
-
-  方式1 — 浏览器下载：
+  两个文件**首次运行时自动从 GitHub 下载**，无需手动操作。如网络不通，也可手动下载：
 
   ```
-  https://github.com/naoto0804/pytorch-AdaIN/releases/download/v0.1.0/decoder.pth
+  https://github.com/naoto0804/pytorch-AdaIN/releases
   ```
 
-  方式2 — 命令行下载：
-
-  ```bash
-  # Windows（需要 curl）
-  curl -L -o task_b/decoder.pth https://github.com/naoto0804/pytorch-AdaIN/releases/download/v0.1.0/decoder.pth
-  ```
-
-  下载后将 `decoder.pth` 放入 `task_b/` 目录（程序会自动检测）。
+  手动下载后，将文件放到以下位置：
+  - `task_b/decoder.pth`
+  - `task_b/model/vgg_normalised.pth`
 
 ---
 
@@ -155,30 +151,3 @@ python task_b/gui_task_b.py
 即可在「内置风格」下拉框中看到这些图片，方便快速切换。
 
 ---
-
-## 五、推荐测试图片来源
-
-| 用途          | 推荐来源                                             |
-| ------------- | ---------------------------------------------------- |
-| 内容图 / 原图 | 手机拍摄照片，Unsplash 免费图                        |
-| 风格参考图    | WikiArt（wikimedia 上的名画）、Google 搜索印象派画作 |
-| 背景图        | Unsplash、Pexels 免费背景图                          |
-
----
-
-## 六、常见问题
-
-**Q：首次运行任务A时等待很久？**
-A：DeepLabV3+ 权重约 300 MB，首次自动下载需要时间，后续运行无需重复下载。
-
-**Q：任务B提示"decoder.pth 不存在"？**
-A：按上方说明下载 decoder.pth 并放入 `task_b/` 目录，或在 GUI 中点击「选择权重文件」。
-
-**Q：CPU 运行任务B很慢？**
-A：在「内容图最大边」下拉框选择 256 或 384 可以显著提升速度（牺牲部分分辨率）。
-
-**Q：泊松融合结果有色差？**
-A：泊松融合适合光照接近的场景，光差大时建议使用 Alpha 融合。
-
-**Q：摄像头模式画面延迟大？**
-A：建议在 GPU 上运行，或将「内容图最大边」设置为 256。
