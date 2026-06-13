@@ -8,11 +8,6 @@ AdaIN 风格迁移网络定义
   编码器：VGG19 前4个 block（到 relu4_1），使用 vgg_normalised.pth 权重
   AdaIN 层：调整内容特征统计量以匹配风格特征
   解码器：与编码器对称的上采样网络（需加载预训练权重）
-
-关键：decoder.pth 必须搭配 vgg_normalised.pth 使用，编码器输出为 relu4_1 (block4_conv1)，
-与 AdaIN 论文一致。解码器 9 层 Conv2d + 3 层 Upsample 正好对应从 relu4_1 反向重构。
-vgg_normalised.pth 包含 1x1 归一化卷积层 + ReflectionPad2d + Conv2d(padding=0)，
-与 torchvision VGG19 结构完全不同，必须按原始格式加载。
 """
 
 import os
@@ -22,7 +17,6 @@ import urllib.request
 import torch
 import torch.nn as nn
 
-# 解决国内网络环境下 SSL 证书验证失败的问题
 ssl._create_default_https_context = ssl._create_unverified_context
 
 # vgg_normalised.pth 下载地址与默认保存路径
@@ -48,7 +42,7 @@ def download_vgg_normalised(
     save_path: str = DEFAULT_VGG_NORMALISED_PATH,
     progress_callback=None,
 ) -> str:
-    """下载 vgg_normalised.pth (~76 MB)。"""
+    """下载 vgg_normalised.pth 。"""
     return _download_weight(
         url=_VGG_NORMALISED_URL,
         save_path=save_path,
@@ -61,7 +55,7 @@ def download_decoder(
     save_path: str = DEFAULT_DECODER_PATH,
     progress_callback=None,
 ) -> str:
-    """下载 decoder.pth (~13 MB)。"""
+    """下载 decoder.pth。"""
     return _download_weight(
         url=_DECODER_URL,
         save_path=save_path,
@@ -125,7 +119,7 @@ def adaptive_instance_normalization(content_feat: torch.Tensor,
 
 
 # ─────────────────────────────────────────────────────────────
-# 构建与 vgg_normalised.pth 完全一致的 VGG Sequential
+# 构建VGG Sequential
 # ─────────────────────────────────────────────────────────────
 
 def _build_vgg_normalised_sequential() -> nn.Sequential:
@@ -303,7 +297,7 @@ class VGGEncoder(nn.Module):
         print("[AdaIN] VGG encoder loaded from vgg_normalised.pth")
 
     def _build_from_torchvision(self):
-        """回退方案：从 torchvision VGG19 构建（效果可能不佳）。"""
+        """回退方案：从 torchvision VGG19 构建。"""
         import torchvision.models as models
         vgg = models.vgg19(weights=models.VGG19_Weights.DEFAULT)
         features = []

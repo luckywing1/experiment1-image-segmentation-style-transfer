@@ -34,7 +34,7 @@ if str(_ROOT) not in sys.path:
 # 支持的图像扩展名
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
-# 默认解码器权重路径（与 adain.py 中定义一致）
+# 默认解码器权重路径
 DEFAULT_DECODER_PATH = _ADAIN_DEFAULT_DECODER
 
 # 默认 VGG 编码器权重路径
@@ -45,11 +45,6 @@ class StyleTransfer:
     """
     AdaIN 风格迁移推理引擎。
 
-    使用方法：
-        st = StyleTransfer()
-        st.load(decoder_path="task_b/decoder.pth")
-
-        result, ms = st.transfer(content_pil, style_pil, alpha=0.8)
     """
 
     def __init__(self, device: str = None, max_content_size: int = 512,

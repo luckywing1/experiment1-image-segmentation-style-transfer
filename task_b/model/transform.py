@@ -3,10 +3,6 @@ task_b/model/transform.py
 图像预处理与后处理工具
 - PIL / numpy / torch 之间的转换
 - 图像尺寸调整策略
-
-注意：原始 pytorch-AdaIN 的 decoder.pth 使用 vgg_normalised 训练，
-输入仅需 ToTensor 到 [0, 1]，不需要 VGG mean/std 归一化。
-输出已在 [0, 1] 范围，直接 clamp 即可，不需要反归一化。
 """
 
 import torch
@@ -139,10 +135,6 @@ class TemporalSmoother:
     简单的指数移动平均（EMA）帧间一致性。
     在视频/摄像头模式下减少帧间闪烁。
 
-    使用方法：
-        smoother = TemporalSmoother(alpha=0.7)
-        for frame in video:
-            smoothed = smoother.update(stylized_frame)
     """
 
     def __init__(self, alpha: float = 0.7):

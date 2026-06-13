@@ -116,7 +116,7 @@ def alpha_blend(
     else:
         alpha = (mask / 255.0).astype(np.float32)
 
-    # 缩放前景和掩码（如有需要）
+    # 缩放前景和掩码
     if scale != 1.0:
         new_h = int(fg_np.shape[0] * scale)
         new_w = int(fg_np.shape[1] * scale)

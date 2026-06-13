@@ -13,7 +13,7 @@ import numpy as np
 from PIL import Image
 from torchvision.models.segmentation import deeplabv3_resnet101, DeepLabV3_ResNet101_Weights
 
-# PASCAL VOC 21类标签（中英文对照）
+# PASCAL VOC 21类标签
 VOC_CLASSES = [
     ("背景",       "background"),
     ("飞机",       "aeroplane"),
@@ -68,7 +68,6 @@ class Segmentor:
     def _ensure_loaded(self):
         if self.model is not None:
             return
-        # 解决国内网络环境下 SSL 证书验证失败的问题
         ssl._create_default_https_context = ssl._create_unverified_context
 
         print("[Segmentor] 正在加载 DeepLabV3+ 预训练权重（首次运行会自动下载，约 300 MB）...")
