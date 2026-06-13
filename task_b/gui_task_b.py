@@ -8,6 +8,7 @@ task_b/gui_task_b.py
 - 批量处理文件夹
 - 底部状态栏：推理耗时 / GPU 显存
 """
+
 import os
 import sys
 import threading
@@ -26,6 +27,7 @@ if str(_ROOT) not in sys.path:
 
 from task_b.model.adain import DEFAULT_VGG_NORMALISED_PATH, download_decoder, download_vgg_normalised
 from task_b.style_transfer import StyleTransfer, DEFAULT_DECODER_PATH, DEFAULT_VGG_PATH
+from task_b.gui_mask_b import MaskStyleWindow
 # ─────────────────────────────────────────────────────────────
 # 常量
 # ─────────────────────────────────────────────────────────────
@@ -248,6 +250,9 @@ class TaskBApp(tk.Tk):
 
         self._btn_save = self._make_btn(row4, "保存结果", self._save_result)
         self._btn_save.pack(side="left", padx=4)
+
+        self._make_btn(row4, "🎨 掩码分区风格", self._open_mask_window).pack(
+            side="left", padx=4)
 
         # ── 状态栏 ──
         self._status_var = tk.StringVar(
@@ -603,6 +608,15 @@ class TaskBApp(tk.Tk):
         if path:
             self._result_pil.save(path)
             self._status("结果已保存：" + os.path.basename(path))
+
+    # ── 掩码分区风格迁移 ──
+    def _open_mask_window(self):
+        """打开掩码分区风格迁移窗口，共享已加载的模型。"""
+        # 确保模型已加载，否则先触发加载（与单张风格迁移共用实例）
+        if not self._ensure_model_loaded():
+            return
+        win = MaskStyleWindow(self, self._st)
+        win.grab_set()  # 模态对话框
 
     # ─────────────────────────────────────────────────────────
     # 辅助方法

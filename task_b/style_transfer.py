@@ -166,6 +166,87 @@ class StyleTransfer:
 
         return result_pil, self.last_inference_ms
 
+    def masked_transfer(
+        self,
+        content: Image.Image,
+        regions: list,
+        alpha: float = 1.0,
+    ) -> tuple:
+        """
+        掩码分区风格迁移：对内容图的不同区域应用不同风格。
+
+        Args:
+            content: 内容图 (PIL RGB)
+            regions: [
+                {
+                    'mask':  PIL 'L' mode 图念（白色=应用该风格，黑色=不应用）,
+                    'style': 风格图 (PIL RGB),
+                    'alpha': 风格强度 [0,1]（可选，缺省用参数 alpha）
+                },
+                ...
+            ]
+            alpha: 全局默认风格强度
+
+        Returns:
+            (result_pil, inference_ms)
+        """
+        self._ensure_loaded()
+        if not regions:
+            raise ValueError("regions 列表不能为空")
+
+        t_total_start = time.perf_counter()
+        t_infer_total = 0.0
+
+        # 将内容图缩放到工作尺寸
+        content_resized = resize_keep_ratio(content, self.max_content_size)
+        W, H = content_resized.size
+
+        # 基底画布：先将全图是为未风格化状态
+        result_arr = np.array(content_resized, dtype=np.float32)
+
+        for region in regions:
+            mask_pil = region['mask']
+            style_pil = region['style']
+            region_alpha = region.get('alpha', alpha)
+
+            # 对当前区域进行风格迁移
+            style_resized = resize_keep_ratio(style_pil, self.max_style_size)
+            content_t = pil_to_tensor(content_resized, self.device)
+            style_t = pil_to_tensor(style_resized, self.device)
+
+            t_s = time.perf_counter()
+            with torch.no_grad():
+                output_t = self._net(content_t, style_t, alpha=region_alpha)
+            if self.device == "cuda":
+                torch.cuda.synchronize()
+            t_infer_total += (time.perf_counter() - t_s) * 1000
+
+            styled_arr = np.array(
+                tensor_to_pil(output_t).resize((W, H), Image.LANCZOS),
+                dtype=np.float32
+            )
+
+            # 将掩码调整到工作尺寸，归一化到 [0,1]
+            mask_resized = mask_pil.resize((W, H), Image.LANCZOS).convert('L')
+            mask_arr = np.array(mask_resized, dtype=np.float32)[
+                :, :, None] / 255.0
+
+            # 掩码合成： result = styled * mask + result * (1 - mask)
+            result_arr = styled_arr * mask_arr + result_arr * (1.0 - mask_arr)
+
+        result_pil = Image.fromarray(
+            np.clip(result_arr, 0, 255).astype(np.uint8))
+
+        # 还原到原始内容图尺寸
+        if result_pil.size != content.size:
+            result_pil = result_pil.resize(content.size, Image.LANCZOS)
+
+        t_total_end = time.perf_counter()
+        self.last_inference_ms = t_infer_total
+        self.last_total_ms = (t_total_end - t_total_start) * 1000
+
+        return result_pil, self.last_inference_ms
+
     def reset_smoother(self):
         """重置帧间平滑历史（切换风格时调用）。"""
         self._smoother.reset()
