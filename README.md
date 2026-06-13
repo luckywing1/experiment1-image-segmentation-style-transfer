@@ -12,7 +12,7 @@
 ## 目录结构
 
 ```
-结课作业/
+experiment1-image-segmentation-style-transfer/
 ├── task_a/
 │   ├── segmentation.py       # DeepLabV3+ 分割模块
 │   ├── compositing.py        # 融合/羽化处理
@@ -21,9 +21,9 @@
 │   ├── model/
 │   │   ├── adain.py          # AdaIN 网络结构
 │   │   ├── transform.py      # 图像预处理/后处理
-│   │   └── vgg_normalised.pth # ← 需要下载（见下方说明）
+│   │   └── vgg_normalised.pth # ← 需要下载
 │   ├── style_transfer.py     # 风格迁移推理引擎
-│   ├── decoder.pth           # ← 需要下载（见下方说明）
+│   ├── decoder.pth           # ← 需要下载
 │   └── gui_task_b.py         # 任务B 桌面GUI（入口）
 ├── assets/
 │   ├── style_images/         # 放入风格参考图（任意 jpg/png）
@@ -55,15 +55,12 @@ conda activate cv_exp
 
 ### 2. 安装 PyTorch
 
-你的显卡为 **RTX 4060 Laptop**，驱动 CUDA 版本 13.2，直接使用以下命令（PyTorch 官方最新稳定版支持到 CUDA 12.x，向下兼容，推荐 cu124）：
 
 ```bash
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
 ```
 
-> 如遇网络问题可尝试先从 [https://pytorch.org](https://pytorch.org) 官网获取完整包名再手动安装。
-
-**CPU 版本（不推荐，速度较慢）：**
+**CPU 版本：**
 
 ```bash
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
@@ -77,14 +74,14 @@ pip install -r requirements.txt
 
 ---
 
-## 二、你需要额外准备的内容
+## 二、需要额外准备的内容
 
 ### 任务A（图像分割）
 
 - **原图**：任意一张含有清晰前景物体的 jpg/png 图片（如含有人、猫、狗、车的照片）
 - **背景图（可选）**：任意一张你想换上的背景图片；不提供则自动使用白色背景
 
-> DeepLabV3+ 预训练权重会在**首次运行时自动下载**（约 300 MB），需要网络连接。
+> DeepLabV3+ 预训练权重会在**首次运行时自动下载**（约 300 MB）。
 
 ### 任务B（风格迁移）
 
@@ -94,7 +91,7 @@ pip install -r requirements.txt
   - `decoder.pth`（~13 MB）— AdaIN 解码器权重
   - `vgg_normalised.pth`（~76 MB）— VGG19 编码器权重
 
-  两个文件**首次运行时自动从 GitHub 下载**，无需手动操作。如网络不通，也可手动下载：
+  两个文件**首次运行时自动从 GitHub 下载**，无需手动操作。也可手动下载：
 
   ```
   https://github.com/naoto0804/pytorch-AdaIN/releases
